@@ -1,0 +1,5 @@
+{
+  "name": "Avian ID",
+  "description": "A decision tree algorithm for identifying bird species based on location, date, size, behavior, habitat, and colors.",
+  "requestFramePermissions": []
+}
