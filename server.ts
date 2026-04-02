@@ -3,6 +3,7 @@ import { createServer as createViteServer } from "vite";
 import fs from "fs/promises";
 import path from "path";
 import { pipeline, env } from "@xenova/transformers";
+import { initEBird, fetchBarchartPrior } from "./ebirdBarchart.js";
 
 // Disable local models to fetch from Hugging Face
 env.allowLocalModels = false;
@@ -36,6 +37,7 @@ async function initML() {
 async function startServer() {
   await loadBirdbaseDataset();
   await initML();
+  await initEBird();
   
   const app = express();
   const PORT = 3000;
@@ -80,6 +82,20 @@ async function startServer() {
     } catch (error) {
       console.error("Embedding failed:", error);
       res.status(500).json({ error: "Failed to generate embedding" });
+    }
+  });
+
+  app.post("/api/barchart-prior", async (req, res) => {
+    try {
+      const { location, date } = req.body;
+      if (!location || !date) {
+        return res.status(400).json({ error: "location and date are required" });
+      }
+      const data = await fetchBarchartPrior(location, date);
+      res.json(data);
+    } catch (error: any) {
+      console.error("Barchart fetch failed:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch barchart data" });
     }
   });
 

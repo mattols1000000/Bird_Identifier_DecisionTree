@@ -70,7 +70,7 @@ Return the response strictly as a JSON object matching this schema.`;
 
   const aiInstance = getAI();
   const response = await aiInstance.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-flash-lite-latest",
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -121,6 +121,40 @@ Return the response strictly as a JSON object matching this schema.`;
   
   // Calculate Bayesian Posteriors if it's a result
   if (parsed.type === 'result' && parsed.birds) {
+    try {
+      const barchartRes = await fetch("/api/barchart-prior", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ location, date })
+      });
+      if (barchartRes.ok) {
+        const barchartData = await barchartRes.json();
+        const freqs = barchartData.frequencies || {};
+        console.log("eBird Barchart Frequencies:", freqs);
+        
+        parsed.birds.forEach(bird => {
+           let ebirdPrior = 0;
+           // Try exact match on ComName
+           if (freqs[bird.commonName] !== undefined) {
+               ebirdPrior = freqs[bird.commonName];
+           } else {
+               // Try fuzzy match
+               const match = Object.keys(freqs).find(k => k.toLowerCase().includes(bird.commonName.toLowerCase()));
+               if (match) {
+                   ebirdPrior = freqs[match];
+               }
+           }
+           
+           // We cap minimum at 0.01 to preserve non-zero fallback for very rare sightings
+           bird.prior = Math.max(ebirdPrior, 0.01);
+        });
+      } else {
+        console.error("Failed to fetch barchart prior from server", await barchartRes.text());
+      }
+    } catch (e) {
+      console.error("Error fetching barchart prior", e);
+    }
+
     let totalUnnormalized = 0;
     
     // Calculate unnormalized posteriors
