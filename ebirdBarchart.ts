@@ -101,8 +101,8 @@ function resolveWeekColName(dateStr: string): string {
   if (isNaN(d.getTime())) return "JanW1"; // fallback
   
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const m = months[d.getMonth()];
-  const day = d.getDate();
+  const m = months[d.getUTCMonth()];
+  const day = d.getUTCDate();
   
   let w = 4;
   if (day <= 7) w = 1;

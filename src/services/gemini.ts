@@ -59,7 +59,14 @@ Previous Follow-up Questions and Answers:
 ${qna.map((q) => `Q: ${q.question}\nA: ${q.answer}`).join("\n")}
 
 Based on this information, act as a decision tree algorithm.
-When determining the size of a bird, you must use the BIRDBASE dataset standards for size comparison.
+When determining the size of a bird, you must use the BIRDBASE dataset standards for size comparison and reference the "avg_mass" column in grams. Use the following baseline references:
+- Sparrow-sized or smaller: <= 27g
+- Between Sparrow and Robin: ~27g to ~80g
+- Robin-sized: ~80g
+- Between Robin and Crow: ~80g to ~456g
+- Crow-sized: ~456g
+- Between Crow and Goose: ~456g to ~4907g
+- Goose-sized: >= 4907g
 If the provided information is sufficient to narrow down the possibilities to a set of highly likely bird species, return a "result" with the list of birds. Do not artificially cap the number of birds; include all species that are strong matches based on the evidence.
 If there are still many possibilities, return a "question" to ask the user a specific, distinguishing question to narrow down the options (e.g., "Did it have a white eye ring?", "Was the bill thick and conical or thin and pointed?").
 If your question refers to a specific bird anatomy term (like "eye ring", "wing bar", "supercilium", "malar stripe", "undertail coverts", "patagials", "primary feathers", "secondary feathers", "outer-tail feathers"), provide that term in the "anatomyTerm" field so we can show a diagram to the user.
@@ -118,7 +125,7 @@ Return the response strictly as a JSON object matching this schema.`;
   }
 
   const parsed = JSON.parse(text) as AIResponse;
-  
+
   // Calculate Bayesian Posteriors if it's a result
   if (parsed.type === 'result' && parsed.birds) {
     try {
@@ -131,22 +138,22 @@ Return the response strictly as a JSON object matching this schema.`;
         const barchartData = await barchartRes.json();
         const freqs = barchartData.frequencies || {};
         console.log("eBird Barchart Frequencies:", freqs);
-        
+
         parsed.birds.forEach(bird => {
-           let ebirdPrior = 0;
-           // Try exact match on ComName
-           if (freqs[bird.commonName] !== undefined) {
-               ebirdPrior = freqs[bird.commonName];
-           } else {
-               // Try fuzzy match
-               const match = Object.keys(freqs).find(k => k.toLowerCase().includes(bird.commonName.toLowerCase()));
-               if (match) {
-                   ebirdPrior = freqs[match];
-               }
-           }
-           
-           // We cap minimum at 0.01 to preserve non-zero fallback for very rare sightings
-           bird.prior = Math.max(ebirdPrior, 0.01);
+          let ebirdPrior = 0;
+          // Try exact match on ComName
+          if (freqs[bird.commonName] !== undefined) {
+            ebirdPrior = freqs[bird.commonName];
+          } else {
+            // Try fuzzy match
+            const match = Object.keys(freqs).find(k => k.toLowerCase().includes(bird.commonName.toLowerCase()));
+            if (match) {
+              ebirdPrior = freqs[match];
+            }
+          }
+
+          // We cap minimum at 0.01 to preserve non-zero fallback for very rare sightings
+          bird.prior = Math.max(ebirdPrior / 100.0, 0.01);
         });
       } else {
         console.error("Failed to fetch barchart prior from server", await barchartRes.text());
@@ -156,22 +163,22 @@ Return the response strictly as a JSON object matching this schema.`;
     }
 
     let totalUnnormalized = 0;
-    
+
     // Calculate unnormalized posteriors
     parsed.birds.forEach(bird => {
       const unnormalized = bird.prior * bird.likelihood;
       totalUnnormalized += unnormalized;
       (bird as any)._unnormalized = unnormalized;
     });
-    
+
     // Normalize so they sum to 1.0 (or close to it)
     parsed.birds.forEach(bird => {
       bird.posterior = totalUnnormalized > 0 ? ((bird as any)._unnormalized / totalUnnormalized) : 0;
     });
-    
+
     // Sort by posterior descending
     parsed.birds.sort((a, b) => (b.posterior || 0) - (a.posterior || 0));
   }
-  
+
   return parsed;
 }

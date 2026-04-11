@@ -59,6 +59,8 @@ async function startServer() {
       const renvironContent = `EBIRD_USER="${username}"\nEBIRD_PASS="${password}"\n`;
       await fs.writeFile(path.join(process.cwd(), '.Renviron'), renvironContent);
       
+      await initEBird();
+      
       res.json({ success: true });
     } catch (error) {
       console.error("Failed to write .Renviron", error);
