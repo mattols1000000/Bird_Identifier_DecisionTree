@@ -42,6 +42,9 @@ export default function App() {
   const [habitat, setHabitat] = useState('');
   const [colors, setColors] = useState('');
   const [qna, setQna] = useState<{ question: string; answer: string }[]>([]);
+  const [expandedFamilies, setExpandedFamilies] = useState<string[]>([]);
+  const [includeExpanded, setIncludeExpanded] = useState(false);
+  const [showDebugTable, setShowDebugTable] = useState(false);
   
   const [ebirdUser, setEbirdUser] = useState('');
   const [ebirdPass, setEbirdPass] = useState('');
@@ -83,9 +86,13 @@ export default function App() {
         behavior,
         habitat,
         colors,
-        qna
+        qna,
+        includeExpanded ? expandedFamilies : undefined
       );
       setAiResponse(response);
+      if (response.expandedFamilies) {
+         setExpandedFamilies(response.expandedFamilies);
+      }
       if (response.type === 'result') {
         setStep(8);
       }
@@ -327,59 +334,26 @@ export default function App() {
             exit={{ opacity: 0, y: -20 }}
             className="space-y-6"
           >
-            {experience === 'pro' ? (
-              <>
-                <div className="text-center mb-8">
-                  <h2 className="text-3xl font-semibold text-stone-800 font-serif">Bird Family</h2>
-                  <p className="text-stone-500 mt-2">What family do you suspect this bird belongs to?</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-stone-700 mb-1">Family or Possible Families</label>
-                  <input
-                    type="text"
-                    value={family}
-                    onChange={(e) => setFamily(e.target.value)}
-                    placeholder="e.g., Anatidae, Parulidae, or just 'Sparrow'"
-                    className="block w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-sm"
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="text-center mb-8">
-                  <h2 className="text-3xl font-semibold text-stone-800 font-serif">Size & Behavior</h2>
-                  <p className="text-stone-500 mt-2">Tell us about the bird's physical presence and actions.</p>
-                </div>
-                
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-stone-700 mb-2">Approximate Size</label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      {SIZES.map((s) => (
-                        <SizeOption 
-                          key={s}
-                          size={s}
-                          selected={size === s}
-                          onClick={() => setSize(s)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-stone-700 mb-1">Observed Behavior</label>
-                    <p className="text-xs text-stone-500 mb-2">What was it doing? (e.g., foraging on the ground, soaring in circles, clinging to a tree trunk)</p>
-                    <textarea
-                      value={behavior}
-                      onChange={(e) => setBehavior(e.target.value)}
-                      rows={3}
-                      placeholder="Describe the behavior in your own words..."
-                      className="block w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-sm resize-none"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-semibold text-stone-800 font-serif">Colors & Markings</h2>
+              <p className="text-stone-500 mt-2">Describe the bird's plumage and any distinctive markings.</p>
+            </div>
+            
+            <div>
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4 flex items-start">
+                <Info className="h-5 w-5 text-blue-500 mr-3 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-blue-800">
+                  Be as descriptive as possible. For example: "black eyebrow, white belly, orange legs, and blue back" or "white primary feathers, black secondary feathers".
+                </p>
+              </div>
+              <textarea
+                value={colors}
+                onChange={(e) => setColors(e.target.value)}
+                rows={5}
+                placeholder="Describe the colors and where they were located..."
+                className="block w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-sm resize-none"
+              />
+            </div>
 
             <div className="flex justify-between pt-6">
               <button
@@ -390,7 +364,7 @@ export default function App() {
               </button>
               <button
                 onClick={handleNext}
-                disabled={experience === 'pro' ? !family : (!size || !behavior)}
+                disabled={!colors}
                 className="flex items-center px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next Step <ArrowRight className="ml-2 h-5 w-5" />
@@ -459,26 +433,71 @@ export default function App() {
             exit={{ opacity: 0, y: -20 }}
             className="space-y-6"
           >
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-semibold text-stone-800 font-serif">Colors & Markings</h2>
-              <p className="text-stone-500 mt-2">Describe the bird's plumage and any distinctive markings.</p>
-            </div>
-            
-            <div>
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4 flex items-start">
-                <Info className="h-5 w-5 text-blue-500 mr-3 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-blue-800">
-                  Be as descriptive as possible. For example: "black eyebrow, white belly, orange legs, and blue back" or "white primary feathers, black secondary feathers".
-                </p>
-              </div>
-              <textarea
-                value={colors}
-                onChange={(e) => setColors(e.target.value)}
-                rows={5}
-                placeholder="Describe the colors and where they were located..."
-                className="block w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-sm resize-none"
-              />
-            </div>
+            {experience === 'pro' ? (
+              <>
+                <div className="text-center mb-8">
+                  <h2 className="text-3xl font-semibold text-stone-800 font-serif">Bird Family & Behaviors</h2>
+                  <p className="text-stone-500 mt-2">What family do you suspect this bird belongs to?</p>
+                </div>
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-1">Family or Possible Families</label>
+                    <input
+                      type="text"
+                      value={family}
+                      onChange={(e) => setFamily(e.target.value)}
+                      placeholder="e.g., Anatidae, Parulidae, or just 'Sparrow'"
+                      className="block w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-1">Noted Behaviors (Optional)</label>
+                    <textarea
+                      value={behavior}
+                      onChange={(e) => setBehavior(e.target.value)}
+                      rows={3}
+                      placeholder="Describe the behavior in your own words..."
+                      className="block w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-sm resize-none"
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-center mb-8">
+                  <h2 className="text-3xl font-semibold text-stone-800 font-serif">Size & Behavior</h2>
+                  <p className="text-stone-500 mt-2">Tell us about the bird's physical presence and actions.</p>
+                </div>
+                
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-2">Approximate Size</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      {SIZES.map((s) => (
+                        <SizeOption 
+                          key={s}
+                          size={s}
+                          selected={size === s}
+                          onClick={() => setSize(s)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-1">Observed Behavior</label>
+                    <p className="text-xs text-stone-500 mb-2">What was it doing? (e.g., foraging on the ground, soaring in circles, clinging to a tree trunk)</p>
+                    <textarea
+                      value={behavior}
+                      onChange={(e) => setBehavior(e.target.value)}
+                      rows={3}
+                      placeholder="Describe the behavior in your own words..."
+                      className="block w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-sm resize-none"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="flex justify-between pt-6">
               <button
@@ -489,7 +508,7 @@ export default function App() {
               </button>
               <button
                 onClick={handleSubmitToAI}
-                disabled={!colors || isProcessing}
+                disabled={experience === 'pro' ? !family : (!size || !behavior) || isProcessing}
                 className="flex items-center px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isProcessing ? 'Processing...' : 'Identify Bird'} <Search className="ml-2 h-5 w-5" />
@@ -650,7 +669,37 @@ export default function App() {
               ))}
             </div>
 
-            <div className="flex justify-center pt-8">
+            {experience === 'pro' && expandedFamilies.length > 0 && !includeExpanded && (
+               <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm mt-8">
+                  <h3 className="text-xl font-semibold text-stone-800 font-serif mb-2">See results with these families included?</h3>
+                  <p className="text-sm text-stone-600 mb-4">The following families appear in this area and matched well with your physical description:</p>
+                  <div className="flex flex-wrap gap-2 mb-6">
+                     {expandedFamilies.map(fam => (
+                        <span key={fam} className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-sm font-medium">{fam}</span>
+                     ))}
+                  </div>
+                  <button
+                     onClick={() => {
+                        setIncludeExpanded(true);
+                        setStep(6); // Send them back to step 6, but we need to show Amateur questions?
+                        // Actually, if we just want to run the search again with amateur questions:
+                        setExperience('amateur'); // Switch them to amateur temporarily to answer those questions
+                        setStep(6); // Step 6 for amateur is Size & Behavior
+                     }}
+                     className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
+                  >
+                     Add More Detail to Expand Search
+                  </button>
+               </div>
+            )}
+
+            <div className="flex justify-center pt-8 gap-4">
+              <button
+                onClick={() => setShowDebugTable(!showDebugTable)}
+                className="px-6 py-3 border border-emerald-300 text-emerald-700 rounded-xl font-medium hover:bg-emerald-50 transition-colors"
+              >
+                {showDebugTable ? 'Hide Debug Data Table' : 'View Debug Data Table'}
+              </button>
               <button
                 onClick={() => {
                   setStep(2); // Skip eBird login since they already did it
@@ -664,12 +713,55 @@ export default function App() {
                   setHabitat('');
                   setColors('');
                   setCurrentAnswer('');
+                  setShowDebugTable(false);
                 }}
                 className="px-6 py-3 border border-stone-300 text-stone-700 rounded-xl font-medium hover:bg-stone-50 transition-colors"
               >
                 Start New Identification
               </button>
             </div>
+
+            {showDebugTable && aiResponse?.allPoolBirds && (
+              <div className="mt-8 bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-stone-200 bg-stone-50 flex justify-between items-center">
+                  <h3 className="font-semibold text-stone-800">Debug Data Table (Master Pool)</h3>
+                  {aiResponse.ebirdRegionCode && (
+                    <div className="text-xs font-medium bg-stone-200 text-stone-700 px-2 py-1 rounded">
+                      Region Matched: {aiResponse.ebirdRegionName} ({aiResponse.ebirdRegionCode})
+                    </div>
+                  )}
+                </div>
+                <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="sticky top-0 bg-stone-50 z-10 shadow-sm">
+                    <tr className="bg-stone-50 border-b border-stone-200 text-stone-600 text-sm">
+                      <th className="px-4 py-3 font-medium">Common Name</th>
+                      <th className="px-4 py-3 font-medium">Scientific Name</th>
+                      <th className="px-4 py-3 font-medium">Norm Freq (Prior)</th>
+                      <th className="px-4 py-3 font-medium">Color (0-100)</th>
+                      <th className="px-4 py-3 font-medium">Shape (0-100)</th>
+                      <th className="px-4 py-3 font-medium">Behavior (0-100)</th>
+                      <th className="px-4 py-3 font-medium">Likelihood</th>
+                      <th className="px-4 py-3 font-medium">Posterior</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {aiResponse.allPoolBirds.map((bird, idx) => (
+                      <tr key={idx} className="hover:bg-stone-50 text-sm">
+                        <td className="px-4 py-3 font-medium text-stone-800">{bird.commonName}</td>
+                        <td className="px-4 py-3 italic text-stone-500">{bird.scientificName}</td>
+                        <td className="px-4 py-3">{bird.prior === -1 ? <span className="text-stone-400">Unavailable</span> : `${(bird.prior * 100).toFixed(2)}%`}</td>
+                        <td className="px-4 py-3">{bird.colorScore !== undefined ? bird.colorScore.toFixed(0) : 'N/A'}</td>
+                        <td className="px-4 py-3">{bird.shapeScore !== undefined ? bird.shapeScore.toFixed(0) : 'N/A'}</td>
+                        <td className="px-4 py-3">{bird.behaviorScore !== undefined ? bird.behaviorScore.toFixed(0) : 'N/A'}</td>
+                        <td className="px-4 py-3 text-amber-600">{(bird.likelihood * 100).toFixed(2)}%</td>
+                        <td className="px-4 py-3 font-medium text-emerald-600">{((bird.posterior || 0) * 100).toFixed(2)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </motion.div>
         );
     }

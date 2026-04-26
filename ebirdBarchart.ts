@@ -164,12 +164,20 @@ Return strictly a JSON object with the 'regionName' property containing your bes
   
   console.log(`Matched to ${matchedRegion.name} (${matchedRegion.code})`);
   
-  await loginToEBird();
+  // await loginToEBird();
   
-  const barchartUrl = `https://ebird.org/barchartData?r=${matchedRegion.code}&bmo=1&emo=12&byr=1900&eyr=2026&fmt=tsv`;
-  const tsvRes = await client.get(barchartUrl);
+  let tsv = "";
+  if (matchedRegion.code === "US-PA-095" || matchedRegion.name.toLowerCase().includes("northampton")) {
+      console.log("Using local TSV file for Northampton County, PA...");
+      tsv = await fs.readFile(path.join(process.cwd(), "ebird_US-PA-095__1900_2026_1_12_barchart.txt"), "utf-8");
+  } else {
+      throw new Error(`Temporary restriction: Only Northampton County, Pennsylvania is supported currently. You requested ${matchedRegion.name} (${matchedRegion.code}).`);
+  }
   
-  const tsv = tsvRes.data as string;
+  if (tsv.includes("<html") || tsv.trim().startsWith("<!DOCTYPE")) {
+      throw new Error("Invalid TSV format: eBird returned an HTML page. This usually indicates an authentication failure or endpoint change.");
+  }
+
   const lines = tsv.split("\n");
   
   // Find header row
@@ -181,9 +189,14 @@ Return strictly a JSON object with the 'regionName' property containing your bes
     }
   }
   if (headerIndex === -1) headerIndex = 13; // default fallback per SpeciesStatsApp
-  if (headerIndex >= lines.length) throw new Error("Invalid TSV format from eBird");
+  if (headerIndex >= lines.length || lines[headerIndex] === undefined) {
+      throw new Error("Invalid TSV format from eBird: could not locate the header row. Format may have changed.");
+  }
 
   const headers = lines[headerIndex].split("\t");
+  if (headers.length < 48 && !headers.some(h => h.includes("Jan") || h.includes("W1"))) {
+      throw new Error(`Invalid TSV format from eBird: headers do not match expected weekly columns. Found ${headers.length} columns.`);
+  }
   
   // Normalizing standard TSV to Weeks
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

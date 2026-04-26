@@ -4,6 +4,8 @@ import fs from "fs/promises";
 import path from "path";
 import { pipeline, env } from "@xenova/transformers";
 import { initEBird, fetchBarchartPrior } from "./ebirdBarchart.js";
+import { dataLoader } from "./src/services/dataLoader.js";
+import { identifyBirdLocal } from "./src/services/identifier.js";
 
 // Disable local models to fetch from Hugging Face
 env.allowLocalModels = false;
@@ -14,13 +16,10 @@ let extractor: any = null;
 
 async function loadBirdbaseDataset() {
   try {
-    const csvPath = path.join(process.cwd(), 'birdbase.csv');
-    // We will parse this CSV later when you provide it locally
-    const fileContent = await fs.readFile(csvPath, 'utf-8');
-    console.log(`Successfully loaded birdbase.csv (${fileContent.length} bytes)`);
-    // TODO: Parse CSV into birdbaseData array
+    dataLoader.init();
+    console.log("Datasets initialized successfully.");
   } catch (error) {
-    console.log("birdbase.csv not found yet. Please add it to the root directory.");
+    console.log("Failed to load datasets:", error);
   }
 }
 
@@ -98,6 +97,17 @@ async function startServer() {
     } catch (error: any) {
       console.error("Barchart fetch failed:", error);
       res.status(500).json({ error: error.message || "Failed to fetch barchart data" });
+    }
+  });
+
+  app.post("/api/identify", async (req, res) => {
+    try {
+      const { location, date, experience, family, size, behavior, habitat, colors, qna, expandedFamilies } = req.body;
+      const result = await identifyBirdLocal(location, date, experience, family, size, behavior, habitat, colors, qna, expandedFamilies);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Identification failed:", error);
+      res.status(500).json({ error: error.message || "Failed to identify bird" });
     }
   });
 
