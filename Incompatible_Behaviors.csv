@@ -1,0 +1,13 @@
+Behavior_A,Behavior_B,Incompatible
+Movement: Trunk-creeping,Water: Surface-swimming,1
+Movement: Trunk-creeping,Water: Diving/Plunging,1
+Movement: Trunk-creeping,Water: Dabbling,1
+Movement: Trunk-creeping,Water: Wading,1
+Flight: Aerial-foraging,Water: Wading,1
+Flight: Hovering/Kiting,Water: Wading,1
+Flight: Aerial-foraging,Movement: Trunk-creeping,1
+Flight: Hovering/Kiting,Movement: Trunk-creeping,1
+Flight: Aerial-foraging,Movement: Ground-walking/running,1
+Flight: Hovering/Kiting,Movement: Ground-walking/running,1
+Flight: Aerial-foraging,Foraging: Scratching,1
+Flight: Hovering/Kiting,Foraging: Scratching,1
