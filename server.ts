@@ -2,8 +2,9 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import fs from "fs/promises";
 import path from "path";
+import axios from "axios";
 import { pipeline, env } from "@xenova/transformers";
-import { initEBird, fetchBarchartPrior } from "./ebirdBarchart.js";
+import { initEBird, fetchBarchartPrior, resolveRegionFromAddress } from "./ebirdBarchart.js";
 import { dataLoader } from "./src/services/dataLoader.js";
 import { identifyBirdLocal } from "./src/services/identifier.js";
 
@@ -86,13 +87,90 @@ async function startServer() {
     }
   });
 
+  app.get("/api/geocode-location", async (req, res) => {
+    try {
+      const q = String(req.query.q || "").trim();
+      if (!q) {
+        return res.status(400).json({ error: "Search text is required" });
+      }
+
+      const response = await axios.get("https://nominatim.openstreetmap.org/search", {
+        params: {
+          q,
+          format: "jsonv2",
+          addressdetails: 1,
+          limit: 5
+        },
+        headers: {
+          "User-Agent": "BirdIdentifierDecisionTree/1.0"
+        }
+      });
+
+      const results = (response.data || []).map((item: any) => ({
+        displayName: item.display_name,
+        lat: Number(item.lat),
+        lng: Number(item.lon),
+        address: item.address || {}
+      }));
+
+      res.json({ results });
+    } catch (error: any) {
+      console.error("Location search failed:", error);
+      res.status(500).json({ error: error.message || "Failed to search for location" });
+    }
+  });
+
+  app.post("/api/resolve-region", async (req, res) => {
+    try {
+      const lat = Number(req.body.lat);
+      const lng = Number(req.body.lng);
+      const fallbackDisplayName = String(req.body.displayName || "");
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return res.status(400).json({ error: "Valid lat and lng are required" });
+      }
+
+      const response = await axios.get("https://nominatim.openstreetmap.org/reverse", {
+        params: {
+          lat,
+          lon: lng,
+          format: "jsonv2",
+          addressdetails: 1,
+          zoom: 10
+        },
+        headers: {
+          "User-Agent": "BirdIdentifierDecisionTree/1.0"
+        }
+      });
+
+      const displayName = response.data?.display_name || fallbackDisplayName;
+      const address = response.data?.address || {};
+      const region = resolveRegionFromAddress(address, displayName);
+
+      res.json({
+        location: {
+          displayName,
+          lat,
+          lng,
+          regionName: region.name,
+          regionCode: region.code,
+          regionType: region.type,
+          address
+        }
+      });
+    } catch (error: any) {
+      console.error("Region resolve failed:", error);
+      res.status(500).json({ error: error.message || "Failed to resolve eBird region" });
+    }
+  });
+
   app.post("/api/barchart-prior", async (req, res) => {
     try {
-      const { location, date } = req.body;
-      if (!location || !date) {
-        return res.status(400).json({ error: "location and date are required" });
+      const { location, regionCode, date } = req.body;
+      if (!regionCode || !date) {
+        return res.status(400).json({ error: "regionCode and date are required" });
       }
-      const data = await fetchBarchartPrior(location, date);
+      const data = await fetchBarchartPrior(location || regionCode, date, regionCode);
       
       // Map eBird frequencies to unique SPECIES_GROUP families
       const availableFamiliesSet = new Set<string>();
@@ -138,8 +216,8 @@ async function startServer() {
 
   app.post("/api/identify", async (req, res) => {
     try {
-      const { location, date, experience, family, size, behavior, habitat, colors, qna, expandedFamilies } = req.body;
-      const result = await identifyBirdLocal(location, date, experience, family, size, behavior, habitat, colors, qna, expandedFamilies);
+      const { location, regionCode, date, experience, family, size, behavior, habitat, colors, shapeDescription, qna, expandedFamilies } = req.body;
+      const result = await identifyBirdLocal(location, regionCode, date, experience, family, size, behavior, habitat, colors, shapeDescription || '', qna || [], expandedFamilies);
       res.json(result);
     } catch (error: any) {
       console.error("Identification failed:", error);

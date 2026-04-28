@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 async function main() {
-  const ai = new GoogleGenAI();
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
   const models = await ai.models.list();
   const names = [];
   for await (const m of models) {

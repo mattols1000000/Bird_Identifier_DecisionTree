@@ -7,7 +7,7 @@ const originalFetch = global.fetch;
         const { fetchBarchartPrior } = await import("./ebirdBarchart.js");
         const body = JSON.parse(opts.body);
         try {
-           const data = await fetchBarchartPrior(body.location, body.date);
+           const data = await fetchBarchartPrior(body.location, body.date, body.regionCode);
            return { ok: true, json: async () => data };
         } catch (e) {
            return { ok: false, text: async () => e.toString() };
@@ -20,6 +20,7 @@ async function main() {
   await initEBird();
   const res = await identifyBird(
     "New York, NY",
+    "US-NY-061",
     "2026-05-15",
     "pro",
     "Passeridae",
@@ -27,6 +28,7 @@ async function main() {
     "",
     "Urban",
     "brown and grey, black bib",
+    "",
     []
   );
   if (res.type === "result") {

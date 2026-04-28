@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MapPin, Calendar, Search, Bird, HelpCircle, ArrowRight, ArrowLeft, CheckCircle2, Loader2, Info } from 'lucide-react';
+import { Calendar, Search, Bird, HelpCircle, ArrowRight, ArrowLeft, CheckCircle2, Loader2, Info } from 'lucide-react';
 import { identifyBird, AIResponse, BirdResult } from './services/gemini';
 import { WikipediaImage } from './components/WikipediaImage';
 import { BirdAnatomyDiagram } from './components/BirdAnatomyDiagram';
 import { SizeOption } from './components/SizeOption';
+import { LocationPicker, ResolvedRegion } from './components/LocationPicker';
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 type Experience = 'pro' | 'amateur';
@@ -34,6 +35,7 @@ const HABITATS = [
 export default function App() {
   const [step, setStep] = useState<Step>(1);
   const [location, setLocation] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<ResolvedRegion | null>(null);
   const [date, setDate] = useState('');
   const [experience, setExperience] = useState<Experience>('amateur');
   const [families, setFamilies] = useState<string[]>([]);
@@ -41,6 +43,7 @@ export default function App() {
   const [behavior, setBehavior] = useState('');
   const [habitats, setHabitats] = useState<string[]>([]);
   const [colors, setColors] = useState('');
+  const [shapeDescription, setShapeDescription] = useState('');
   const [qna, setQna] = useState<{ question: string; answer: string }[]>([]);
   const [expandedFamilies, setExpandedFamilies] = useState<string[]>([]);
   const [availableFamilies, setAvailableFamilies] = useState<string[]>([]);
@@ -91,6 +94,7 @@ export default function App() {
     try {
       const response = await identifyBird(
         location,
+        selectedLocation?.regionCode,
         date,
         experience,
         families,
@@ -98,6 +102,7 @@ export default function App() {
         behavior,
         habitats,
         colors,
+        shapeDescription,
         qna,
         includeExpanded ? expandedFamilies : undefined
       );
@@ -132,6 +137,7 @@ export default function App() {
     try {
       const response = await identifyBird(
         location,
+        selectedLocation?.regionCode,
         date,
         experience,
         families,
@@ -139,6 +145,7 @@ export default function App() {
         behavior,
         habitats,
         colors,
+        shapeDescription,
         newQna
       );
       setAiResponse(response);
@@ -243,19 +250,14 @@ export default function App() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1">Location</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <MapPin className="h-5 w-5 text-stone-400" />
-                  </div>
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="e.g., Central Park, NY or 40.78, -73.96"
-                    className="block w-full pl-10 pr-3 py-3 border border-stone-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-sm transition-shadow"
-                  />
-                </div>
+                <label className="block text-sm font-medium text-stone-700 mb-1">Sighting location</label>
+                <LocationPicker
+                  value={selectedLocation}
+                  onChange={(pickedLocation) => {
+                    setSelectedLocation(pickedLocation);
+                    setLocation(pickedLocation.displayName);
+                  }}
+                />
               </div>
 
               <div>
@@ -277,7 +279,7 @@ export default function App() {
             <div className="flex justify-end pt-6">
               <button
                 onClick={handleNext}
-                disabled={!location || !date}
+                disabled={!selectedLocation?.regionCode || !date}
                 className="flex items-center px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next Step <ArrowRight className="ml-2 h-5 w-5" />
@@ -366,6 +368,25 @@ export default function App() {
                 className="block w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-sm resize-none"
               />
             </div>
+
+            {experience === 'amateur' && (
+              <div>
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 mb-4 flex items-start">
+                  <Info className="h-5 w-5 text-emerald-500 mr-3 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-emerald-800">
+                    Describe body shape details such as beak length, tail length, leg length, beak shape, or wing shape. For example: "long legs, long spear-like beak, short tail, broad rounded wings".
+                  </p>
+                </div>
+                <label className="block text-sm font-medium text-stone-700 mb-1">Shape Description</label>
+                <textarea
+                  value={shapeDescription}
+                  onChange={(e) => setShapeDescription(e.target.value)}
+                  rows={4}
+                  placeholder="Describe the bird's shape..."
+                  className="block w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-sm resize-none"
+                />
+              </div>
+            )}
 
             <div className="flex justify-between pt-6">
               <button
@@ -757,11 +778,13 @@ export default function App() {
                   setAiResponse(null);
                   setLocation('');
                   setDate('');
-                  setFamily('');
+                  setSelectedLocation(null);
+                  setFamilies([]);
                   setSize('');
                   setBehavior('');
-                  setHabitat('');
+                  setHabitats([]);
                   setColors('');
+                  setShapeDescription('');
                   setCurrentAnswer('');
                   setShowDebugTable(false);
                 }}
@@ -791,6 +814,7 @@ export default function App() {
                         <th className="px-4 py-3 font-medium">Color (0-100)</th>
                         <th className="px-4 py-3 font-medium">Shape (0-100)</th>
                         <th className="px-4 py-3 font-medium">Behavior (0-100)</th>
+                        <th className="px-4 py-3 font-medium">Habitat (0-100)</th>
                         <th className="px-4 py-3 font-medium">Likelihood</th>
                         <th className="px-4 py-3 font-medium">Posterior</th>
                       </tr>
@@ -804,6 +828,7 @@ export default function App() {
                           <td className="px-4 py-3">{bird.colorScore !== undefined ? bird.colorScore.toFixed(0) : 'N/A'}</td>
                           <td className="px-4 py-3">{bird.shapeScore !== undefined ? bird.shapeScore.toFixed(0) : 'N/A'}</td>
                           <td className="px-4 py-3">{bird.behaviorScore !== undefined ? bird.behaviorScore.toFixed(0) : 'N/A'}</td>
+                          <td className="px-4 py-3">{bird.habitatScore !== undefined ? bird.habitatScore.toFixed(0) : 'N/A'}</td>
                           <td className="px-4 py-3 text-amber-600">{(bird.likelihood * 100).toFixed(2)}%</td>
                           <td className="px-4 py-3 font-medium text-emerald-600">{((bird.posterior || 0) * 100).toFixed(2)}%</td>
                         </tr>

@@ -9,6 +9,7 @@ export interface BirdResult {
   colorScore?: number;
   shapeScore?: number;
   behaviorScore?: number;
+  habitatScore?: number;
 }
 
 export interface AIResponse {
@@ -24,6 +25,7 @@ export interface AIResponse {
 
 export async function identifyBird(
   location: string,
+  regionCode: string | undefined,
   date: string,
   experience: "pro" | "amateur",
   family: string | string[],
@@ -31,11 +33,13 @@ export async function identifyBird(
   behavior: string,
   habitat: string | string[],
   colors: string,
+  shapeDescription: string,
   qna: { question: string; answer: string }[],
   expandedFamilies?: string[]
 ): Promise<AIResponse> {
   const payload = {
     location,
+    regionCode,
     date,
     experience,
     family,
@@ -43,6 +47,7 @@ export async function identifyBird(
     behavior,
     habitat: Array.isArray(habitat) ? habitat.join(", ") : habitat,
     colors,
+    shapeDescription,
     qna,
     expandedFamilies
   };
