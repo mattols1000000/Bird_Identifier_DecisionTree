@@ -93,10 +93,46 @@ async function startServer() {
         return res.status(400).json({ error: "location and date are required" });
       }
       const data = await fetchBarchartPrior(location, date);
-      res.json(data);
+      
+      // Map eBird frequencies to unique SPECIES_GROUP families
+      const availableFamiliesSet = new Set<string>();
+      if (data.frequencies) {
+        for (const ebirdName of Object.keys(data.frequencies)) {
+          // Find the corresponding birdBase record
+          const bird = dataLoader.birdBase.find(b => 
+            b.common_name.toLowerCase() === ebirdName.toLowerCase() || 
+            ebirdName.toLowerCase().includes(b.common_name.toLowerCase())
+          );
+          
+          if (bird && bird.family_clements_ebird2024) {
+            const taxonomy = dataLoader.taxonomyMap.get(bird.family_clements_ebird2024);
+            if (taxonomy && taxonomy.group) {
+              availableFamiliesSet.add(taxonomy.group);
+            }
+          }
+        }
+      }
+      const availableFamilies = Array.from(availableFamiliesSet).sort();
+      
+      res.json({ ...data, availableFamilies });
     } catch (error: any) {
       console.error("Barchart fetch failed:", error);
       res.status(500).json({ error: error.message || "Failed to fetch barchart data" });
+    }
+  });
+
+  app.get("/api/all-families", (req, res) => {
+    try {
+      const allGroups = new Set<string>();
+      for (const taxonomy of dataLoader.taxonomyMap.values()) {
+        if (taxonomy.group) {
+          allGroups.add(taxonomy.group);
+        }
+      }
+      res.json({ availableFamilies: Array.from(allGroups).sort() });
+    } catch (error: any) {
+      console.error("Failed to fetch all families:", error);
+      res.status(500).json({ error: "Failed to fetch families" });
     }
   });
 

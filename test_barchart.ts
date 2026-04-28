@@ -1,10 +1,15 @@
-import { initEBird, fetchBarchartPrior } from "./ebirdBarchart.js";
-import { GoogleGenAI } from "@google/genai";
+import { fetchBarchartPrior, initEBird } from './ebirdBarchart';
 
-async function main() {
-  await initEBird();
-  const data = await fetchBarchartPrior("New York, NY", "2026-05-15");
-  console.log("Returned data length for frequencies:", Object.keys(data.frequencies || {}).length);
+async function test() {
+    await initEBird();
+    try {
+        const data = await fetchBarchartPrior("Northampton, PA", "2024-05-15");
+        console.log("Success! Region:", data.regionName);
+        console.log("Max Freq:", data.maxFreqOriginal);
+        console.log("Top 3 species:", Object.keys(data.frequencies).slice(0, 3));
+    } catch (e) {
+        console.error("Test failed:", e);
+    }
 }
 
-main().catch(console.error);
+test();

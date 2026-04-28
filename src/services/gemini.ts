@@ -26,10 +26,10 @@ export async function identifyBird(
   location: string,
   date: string,
   experience: "pro" | "amateur",
-  family: string,
+  family: string | string[],
   size: string,
   behavior: string,
-  habitat: string,
+  habitat: string | string[],
   colors: string,
   qna: { question: string; answer: string }[],
   expandedFamilies?: string[]
@@ -41,7 +41,7 @@ export async function identifyBird(
     family,
     size,
     behavior,
-    habitat,
+    habitat: Array.isArray(habitat) ? habitat.join(", ") : habitat,
     colors,
     qna,
     expandedFamilies
@@ -54,8 +54,16 @@ export async function identifyBird(
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to identify bird: ${errorText}`);
+    let errorMsg = "Failed to identify bird";
+    try {
+      const errorJson = await response.json();
+      if (errorJson.error) {
+        errorMsg = errorJson.error;
+      }
+    } catch {
+      errorMsg = await response.text();
+    }
+    throw new Error(errorMsg);
   }
 
   const parsed = await response.json() as AIResponse;

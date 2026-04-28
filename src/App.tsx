@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapPin, Calendar, Search, Bird, HelpCircle, ArrowRight, ArrowLeft, CheckCircle2, Loader2, Info } from 'lucide-react';
 import { identifyBird, AIResponse, BirdResult } from './services/gemini';
@@ -36,20 +36,32 @@ export default function App() {
   const [location, setLocation] = useState('');
   const [date, setDate] = useState('');
   const [experience, setExperience] = useState<Experience>('amateur');
-  const [family, setFamily] = useState('');
+  const [families, setFamilies] = useState<string[]>([]);
   const [size, setSize] = useState('');
   const [behavior, setBehavior] = useState('');
-  const [habitat, setHabitat] = useState('');
+  const [habitats, setHabitats] = useState<string[]>([]);
   const [colors, setColors] = useState('');
   const [qna, setQna] = useState<{ question: string; answer: string }[]>([]);
   const [expandedFamilies, setExpandedFamilies] = useState<string[]>([]);
+  const [availableFamilies, setAvailableFamilies] = useState<string[]>([]);
   const [includeExpanded, setIncludeExpanded] = useState(false);
   const [showDebugTable, setShowDebugTable] = useState(false);
-  
+
+  useEffect(() => {
+    fetch('/api/all-families')
+      .then(res => res.json())
+      .then(data => {
+        if (data.availableFamilies) {
+          setAvailableFamilies(data.availableFamilies);
+        }
+      })
+      .catch(err => console.error("Error fetching available families", err));
+  }, []);
+
   const [ebirdUser, setEbirdUser] = useState('');
   const [ebirdPass, setEbirdPass] = useState('');
   const [showEbirdInfo, setShowEbirdInfo] = useState(false);
-  
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null);
   const [currentAnswer, setCurrentAnswer] = useState('');
@@ -81,17 +93,17 @@ export default function App() {
         location,
         date,
         experience,
-        family,
+        families,
         size,
         behavior,
-        habitat,
+        habitats,
         colors,
         qna,
         includeExpanded ? expandedFamilies : undefined
       );
       setAiResponse(response);
       if (response.expandedFamilies) {
-         setExpandedFamilies(response.expandedFamilies);
+        setExpandedFamilies(response.expandedFamilies);
       }
       if (response.type === 'result') {
         setStep(8);
@@ -111,21 +123,21 @@ export default function App() {
 
   const handleAnswerQuestion = async () => {
     if (!aiResponse?.question || !currentAnswer.trim()) return;
-    
+
     const newQna = [...qna, { question: aiResponse.question, answer: currentAnswer }];
     setQna(newQna);
     setCurrentAnswer('');
-    
+
     setIsProcessing(true);
     try {
       const response = await identifyBird(
         location,
         date,
         experience,
-        family,
+        families,
         size,
         behavior,
-        habitat,
+        habitats,
         colors,
         newQna
       );
@@ -159,25 +171,25 @@ export default function App() {
               <h2 className="text-3xl font-semibold text-stone-800 font-serif">eBird Integration</h2>
               <p className="text-stone-500 mt-2">Connect your eBird account to fetch local sightings data.</p>
             </div>
-            
+
             <div className="space-y-4 bg-white p-6 rounded-2xl border border-stone-200 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-medium text-stone-700">eBird Username</label>
-                <button 
-                  onClick={() => setShowEbirdInfo(!showEbirdInfo)} 
-                  className="text-stone-400 hover:text-emerald-600 transition-colors" 
+                <button
+                  onClick={() => setShowEbirdInfo(!showEbirdInfo)}
+                  className="text-stone-400 hover:text-emerald-600 transition-colors"
                   title="Why do we need this?"
                 >
                   <HelpCircle className="h-5 w-5" />
                 </button>
               </div>
-              
+
               <AnimatePresence>
                 {showEbirdInfo && (
-                  <motion.div 
-                    initial={{ opacity: 0, height: 0 }} 
-                    animate={{ opacity: 1, height: 'auto' }} 
-                    exit={{ opacity: 0, height: 0 }} 
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
                     className="overflow-hidden"
                   >
                     <div className="bg-emerald-50 text-emerald-800 text-sm p-4 rounded-xl mb-4 border border-emerald-100">
@@ -194,7 +206,7 @@ export default function App() {
                 placeholder="Username"
                 className="block w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-sm transition-shadow"
               />
-              
+
               <label className="block text-sm font-medium text-stone-700 mt-4 mb-1">eBird Password</label>
               <input
                 type="password"
@@ -228,7 +240,7 @@ export default function App() {
               <h2 className="text-3xl font-semibold text-stone-800 font-serif">Where and When?</h2>
               <p className="text-stone-500 mt-2">Let's start with the basics of your sighting.</p>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-1">Location</label>
@@ -245,7 +257,7 @@ export default function App() {
                   />
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-stone-700 mb-1">Date</label>
                 <div className="relative">
@@ -285,7 +297,7 @@ export default function App() {
               <h2 className="text-3xl font-semibold text-stone-800 font-serif">Your Experience Level</h2>
               <p className="text-stone-500 mt-2">This helps us tailor the questions to your knowledge.</p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <button
                 onClick={() => { setExperience('amateur'); handleNext(); }}
@@ -300,7 +312,7 @@ export default function App() {
                 <h3 className="text-lg font-semibold text-stone-800">Bird Enthusiast</h3>
                 <p className="text-stone-500 text-sm mt-2">I'll describe the bird's size, behavior, and colors in my own words.</p>
               </button>
-              
+
               <button
                 onClick={() => { setExperience('pro'); handleNext(); }}
                 className={`p-6 border-2 rounded-2xl text-left transition-all ${experience === 'pro' ? 'border-emerald-500 bg-emerald-50' : 'border-stone-200 hover:border-emerald-300 hover:bg-stone-50'}`}
@@ -338,7 +350,7 @@ export default function App() {
               <h2 className="text-3xl font-semibold text-stone-800 font-serif">Colors & Markings</h2>
               <p className="text-stone-500 mt-2">Describe the bird's plumage and any distinctive markings.</p>
             </div>
-            
+
             <div>
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-4 flex items-start">
                 <Info className="h-5 w-5 text-blue-500 mr-3 flex-shrink-0 mt-0.5" />
@@ -384,25 +396,50 @@ export default function App() {
               <h2 className="text-3xl font-semibold text-stone-800 font-serif">Habitat</h2>
               <p className="text-stone-500 mt-2">Where did you see the bird?</p>
             </div>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {HABITATS.map((h) => (
-                <button
-                  key={h}
-                  onClick={() => setHabitat(h)}
-                  className={`px-4 py-4 text-sm rounded-xl border text-center transition-all ${habitat === h ? 'border-emerald-500 bg-emerald-50 text-emerald-800 font-medium shadow-sm' : 'border-stone-200 hover:border-stone-300 text-stone-700 bg-white'}`}
-                >
-                  {h}
-                </button>
-              ))}
+              {HABITATS.map((h) => {
+                const isSelected = habitats.includes(h);
+                const isDisabled = !isSelected && habitats.length >= 3;
+                return (
+                  <button
+                    key={h}
+                    onClick={() => {
+                      if (isSelected) {
+                        setHabitats(habitats.filter(item => item !== h));
+                      } else if (!isDisabled) {
+                        setHabitats([...habitats, h]);
+                      }
+                    }}
+                    disabled={isDisabled}
+                    className={`px-4 py-4 text-sm rounded-xl border text-center transition-all ${isSelected ? 'border-emerald-500 bg-emerald-50 text-emerald-800 font-medium shadow-sm' :
+                        isDisabled ? 'border-stone-100 bg-stone-50 text-stone-400 opacity-50 cursor-not-allowed' :
+                          'border-stone-200 hover:border-stone-300 text-stone-700 bg-white'
+                      }`}
+                  >
+                    {h}
+                  </button>
+                );
+              })}
             </div>
-            
+
             <div className="mt-4">
               <label className="block text-sm font-medium text-stone-700 mb-1">Other (Optional)</label>
               <input
                 type="text"
-                value={!HABITATS.includes(habitat) && habitat ? habitat : ''}
-                onChange={(e) => setHabitat(e.target.value)}
+                value={habitats.find(h => !HABITATS.includes(h)) || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const currentOthers = habitats.filter(h => !HABITATS.includes(h));
+                  const standard = habitats.filter(h => HABITATS.includes(h));
+                  if (val) {
+                    if (standard.length < 3 || currentOthers.length > 0) {
+                      setHabitats([...standard, val].slice(0, 3));
+                    }
+                  } else {
+                    setHabitats(standard);
+                  }
+                }}
                 placeholder="Describe the habitat if not listed above..."
                 className="block w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-sm"
               />
@@ -417,7 +454,7 @@ export default function App() {
               </button>
               <button
                 onClick={handleNext}
-                disabled={!habitat}
+                disabled={habitats.length === 0}
                 className="flex items-center px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next Step <ArrowRight className="ml-2 h-5 w-5" />
@@ -442,13 +479,27 @@ export default function App() {
                 <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-medium text-stone-700 mb-1">Family or Possible Families</label>
-                    <input
-                      type="text"
-                      value={family}
-                      onChange={(e) => setFamily(e.target.value)}
-                      placeholder="e.g., Anatidae, Parulidae, or just 'Sparrow'"
-                      className="block w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-sm"
-                    />
+                    <div className="max-h-48 overflow-y-auto border border-stone-300 rounded-xl bg-white shadow-sm">
+                      {availableFamilies.length > 0 ? (
+                        availableFamilies.map(fam => (
+                          <label key={fam} className="flex items-center px-4 py-2 hover:bg-stone-50 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={families.includes(fam)}
+                              onChange={(e) => {
+                                if (e.target.checked) setFamilies([...families, fam]);
+                                else setFamilies(families.filter(f => f !== fam));
+                              }}
+                              className="mr-3 h-4 w-4 text-emerald-600 focus:ring-emerald-500 rounded border-stone-300"
+                            />
+                            <span className="text-sm text-stone-700">{fam}</span>
+                          </label>
+                        ))
+                      ) : (
+                        <div className="p-4 text-sm text-stone-500 italic text-center">Loading families...</div>
+                      )}
+                    </div>
+                    <p className="text-xs text-stone-500 mt-2">Select one or more families you suspect.</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-stone-700 mb-1">Noted Behaviors (Optional)</label>
@@ -468,13 +519,13 @@ export default function App() {
                   <h2 className="text-3xl font-semibold text-stone-800 font-serif">Size & Behavior</h2>
                   <p className="text-stone-500 mt-2">Tell us about the bird's physical presence and actions.</p>
                 </div>
-                
+
                 <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-medium text-stone-700 mb-2">Approximate Size</label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                       {SIZES.map((s) => (
-                        <SizeOption 
+                        <SizeOption
                           key={s}
                           size={s}
                           selected={size === s}
@@ -483,7 +534,7 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-stone-700 mb-1">Observed Behavior</label>
                     <p className="text-xs text-stone-500 mb-2">What was it doing? (e.g., foraging on the ground, soaring in circles, clinging to a tree trunk)</p>
@@ -508,7 +559,7 @@ export default function App() {
               </button>
               <button
                 onClick={handleSubmitToAI}
-                disabled={experience === 'pro' ? !family : (!size || !behavior) || isProcessing}
+                disabled={experience === 'pro' ? families.length === 0 : (!size || !behavior) || isProcessing}
                 className="flex items-center px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isProcessing ? 'Processing...' : 'Identify Bird'} <Search className="ml-2 h-5 w-5" />
@@ -541,10 +592,10 @@ export default function App() {
                   <h2 className="text-3xl font-semibold text-stone-800 font-serif">We need more info</h2>
                   <p className="text-stone-500 mt-2">There are still a few possibilities. Please answer this question to narrow it down.</p>
                 </div>
-                
+
                 <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm">
                   <h3 className="text-xl font-medium text-stone-800 mb-4">{aiResponse.question}</h3>
-                  
+
                   {aiResponse.anatomyTerm && (
                     <div className="mb-6 p-4 bg-stone-50 rounded-xl border border-stone-100">
                       <p className="text-sm text-stone-600 font-medium mb-4 flex items-center">
@@ -562,7 +613,7 @@ export default function App() {
                     placeholder="Your answer..."
                     className="block w-full px-4 py-3 border border-stone-300 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 bg-white shadow-sm resize-none mb-4"
                   />
-                  
+
                   <div className="flex justify-end">
                     <button
                       onClick={handleAnswerQuestion}
@@ -592,13 +643,13 @@ export default function App() {
               <h2 className="text-3xl font-semibold text-stone-800 font-serif">Identification Complete</h2>
               <p className="text-stone-500 mt-2">Based on your observations, here are the most likely matches.</p>
             </div>
-            
+
             <div className="space-y-4">
               {aiResponse?.birds?.map((bird, index) => (
                 <div key={index} className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row gap-6">
                   <div className="w-full md:w-48 h-48 bg-stone-100 rounded-xl flex-shrink-0 overflow-hidden relative">
-                    <WikipediaImage 
-                      title={bird.scientificName} 
+                    <WikipediaImage
+                      title={bird.scientificName}
                       alt={bird.commonName}
                       className="absolute inset-0 w-full h-full object-cover"
                     />
@@ -609,18 +660,17 @@ export default function App() {
                         <h3 className="text-2xl font-semibold text-stone-800 font-serif">{bird.commonName}</h3>
                         <p className="text-stone-500 italic">{bird.scientificName}</p>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        index === 0 ? 'bg-emerald-100 text-emerald-800' :
-                        index === 1 ? 'bg-amber-100 text-amber-800' :
-                        'bg-stone-100 text-stone-800'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${index === 0 ? 'bg-emerald-100 text-emerald-800' :
+                          index === 1 ? 'bg-amber-100 text-amber-800' :
+                            'bg-stone-100 text-stone-800'
+                        }`}>
                         {index === 0 ? 'Top Match' : 'Possible Match'}
                       </span>
                     </div>
                     <p className="text-stone-600 mt-4 leading-relaxed mb-6">{bird.description}</p>
-                    
+
                     {bird.ebirdCode && (
-                      <a 
+                      <a
                         href={`https://ebird.org/species/${bird.ebirdCode}`}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -629,11 +679,11 @@ export default function App() {
                         View on eBird <ArrowRight className="ml-1.5 h-4 w-4" />
                       </a>
                     )}
-                    
+
                     {/* Bayesian Metrics */}
                     <div className="bg-stone-50 rounded-xl p-4 border border-stone-100 space-y-3">
                       <h4 className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Bayesian Probability</h4>
-                      
+
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs">
                           <span className="text-stone-600">Prior <span className="text-stone-400">P(Species)</span></span>
@@ -670,27 +720,27 @@ export default function App() {
             </div>
 
             {experience === 'pro' && expandedFamilies.length > 0 && !includeExpanded && (
-               <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm mt-8">
-                  <h3 className="text-xl font-semibold text-stone-800 font-serif mb-2">See results with these families included?</h3>
-                  <p className="text-sm text-stone-600 mb-4">The following families appear in this area and matched well with your physical description:</p>
-                  <div className="flex flex-wrap gap-2 mb-6">
-                     {expandedFamilies.map(fam => (
-                        <span key={fam} className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-sm font-medium">{fam}</span>
-                     ))}
-                  </div>
-                  <button
-                     onClick={() => {
-                        setIncludeExpanded(true);
-                        setStep(6); // Send them back to step 6, but we need to show Amateur questions?
-                        // Actually, if we just want to run the search again with amateur questions:
-                        setExperience('amateur'); // Switch them to amateur temporarily to answer those questions
-                        setStep(6); // Step 6 for amateur is Size & Behavior
-                     }}
-                     className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
-                  >
-                     Add More Detail to Expand Search
-                  </button>
-               </div>
+              <div className="bg-white border border-stone-200 rounded-2xl p-6 shadow-sm mt-8">
+                <h3 className="text-xl font-semibold text-stone-800 font-serif mb-2">See results with these families included?</h3>
+                <p className="text-sm text-stone-600 mb-4">The following families appear in this area and matched well with your physical description:</p>
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {expandedFamilies.map(fam => (
+                    <span key={fam} className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-sm font-medium">{fam}</span>
+                  ))}
+                </div>
+                <button
+                  onClick={() => {
+                    setIncludeExpanded(true);
+                    setStep(6); // Send them back to step 6, but we need to show Amateur questions?
+                    // Actually, if we just want to run the search again with amateur questions:
+                    setExperience('amateur'); // Switch them to amateur temporarily to answer those questions
+                    setStep(6); // Step 6 for amateur is Size & Behavior
+                  }}
+                  className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors"
+                >
+                  Add More Detail to Expand Search
+                </button>
+              </div>
             )}
 
             <div className="flex justify-center pt-8 gap-4">
@@ -734,34 +784,34 @@ export default function App() {
                 <div className="overflow-x-auto max-h-96 overflow-y-auto">
                   <table className="w-full text-left border-collapse">
                     <thead className="sticky top-0 bg-stone-50 z-10 shadow-sm">
-                    <tr className="bg-stone-50 border-b border-stone-200 text-stone-600 text-sm">
-                      <th className="px-4 py-3 font-medium">Common Name</th>
-                      <th className="px-4 py-3 font-medium">Scientific Name</th>
-                      <th className="px-4 py-3 font-medium">Norm Freq (Prior)</th>
-                      <th className="px-4 py-3 font-medium">Color (0-100)</th>
-                      <th className="px-4 py-3 font-medium">Shape (0-100)</th>
-                      <th className="px-4 py-3 font-medium">Behavior (0-100)</th>
-                      <th className="px-4 py-3 font-medium">Likelihood</th>
-                      <th className="px-4 py-3 font-medium">Posterior</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-100">
-                    {aiResponse.allPoolBirds.map((bird, idx) => (
-                      <tr key={idx} className="hover:bg-stone-50 text-sm">
-                        <td className="px-4 py-3 font-medium text-stone-800">{bird.commonName}</td>
-                        <td className="px-4 py-3 italic text-stone-500">{bird.scientificName}</td>
-                        <td className="px-4 py-3">{bird.prior === -1 ? <span className="text-stone-400">Unavailable</span> : `${(bird.prior * 100).toFixed(2)}%`}</td>
-                        <td className="px-4 py-3">{bird.colorScore !== undefined ? bird.colorScore.toFixed(0) : 'N/A'}</td>
-                        <td className="px-4 py-3">{bird.shapeScore !== undefined ? bird.shapeScore.toFixed(0) : 'N/A'}</td>
-                        <td className="px-4 py-3">{bird.behaviorScore !== undefined ? bird.behaviorScore.toFixed(0) : 'N/A'}</td>
-                        <td className="px-4 py-3 text-amber-600">{(bird.likelihood * 100).toFixed(2)}%</td>
-                        <td className="px-4 py-3 font-medium text-emerald-600">{((bird.posterior || 0) * 100).toFixed(2)}%</td>
+                      <tr className="bg-stone-50 border-b border-stone-200 text-stone-600 text-sm">
+                        <th className="px-4 py-3 font-medium">Common Name</th>
+                        <th className="px-4 py-3 font-medium">Scientific Name</th>
+                        <th className="px-4 py-3 font-medium">Norm Freq (Prior)</th>
+                        <th className="px-4 py-3 font-medium">Color (0-100)</th>
+                        <th className="px-4 py-3 font-medium">Shape (0-100)</th>
+                        <th className="px-4 py-3 font-medium">Behavior (0-100)</th>
+                        <th className="px-4 py-3 font-medium">Likelihood</th>
+                        <th className="px-4 py-3 font-medium">Posterior</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100">
+                      {aiResponse.allPoolBirds.map((bird, idx) => (
+                        <tr key={idx} className="hover:bg-stone-50 text-sm">
+                          <td className="px-4 py-3 font-medium text-stone-800">{bird.commonName}</td>
+                          <td className="px-4 py-3 italic text-stone-500">{bird.scientificName}</td>
+                          <td className="px-4 py-3">{bird.prior === -1 ? <span className="text-stone-400">Unavailable</span> : `${(bird.prior * 100).toFixed(2)}%`}</td>
+                          <td className="px-4 py-3">{bird.colorScore !== undefined ? bird.colorScore.toFixed(0) : 'N/A'}</td>
+                          <td className="px-4 py-3">{bird.shapeScore !== undefined ? bird.shapeScore.toFixed(0) : 'N/A'}</td>
+                          <td className="px-4 py-3">{bird.behaviorScore !== undefined ? bird.behaviorScore.toFixed(0) : 'N/A'}</td>
+                          <td className="px-4 py-3 text-amber-600">{(bird.likelihood * 100).toFixed(2)}%</td>
+                          <td className="px-4 py-3 font-medium text-emerald-600">{((bird.posterior || 0) * 100).toFixed(2)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
             )}
           </motion.div>
         );

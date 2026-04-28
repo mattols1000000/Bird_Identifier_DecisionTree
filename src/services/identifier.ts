@@ -1,5 +1,6 @@
 import { dataLoader } from './dataLoader';
 import { extractBirdFeatures, QwenExtractedData } from './qwen';
+import { fetchBarchartPrior } from '../../ebirdBarchart';
 
 export interface BirdResult {
   commonName: string;
@@ -28,7 +29,7 @@ export async function identifyBirdLocal(
   location: string,
   date: string,
   experience: "pro" | "amateur",
-  family: string,
+  family: string | string[],
   size: string,
   behavior: string,
   habitat: string,
@@ -51,26 +52,19 @@ ${experience === 'pro' ? `Family: ${family}\nBehaviors: ${behavior}` : `Size: ${
   let freqs: Record<string, number> = {};
   let regionCodeStr = "";
   let regionNameStr = "";
-  try {
-    const barchartRes = await fetch("http://localhost:3000/api/barchart-prior", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ location, date })
-    });
-    if (barchartRes.ok) {
-      const barchartData = await barchartRes.json();
-      freqs = barchartData.frequencies || {};
-      regionCodeStr = barchartData.regionCode || "";
-      regionNameStr = barchartData.regionName || "";
-    }
-  } catch (e) {
-    console.error("Error fetching barchart prior", e);
-  }
-
-  // Find max frequency for normalization
   let maxFreq = 0;
-  for (const f of Object.values(freqs)) {
-    if (f > maxFreq) maxFreq = f;
+  
+  const barchartData = await fetchBarchartPrior(location, date);
+  freqs = barchartData.frequencies || {};
+  regionCodeStr = barchartData.regionCode || "";
+  regionNameStr = barchartData.regionName || "";
+  maxFreq = barchartData.maxFreqOriginal || 0;
+
+  // Find max frequency for normalization (fallback if missing)
+  if (maxFreq === 0) {
+    for (const f of Object.values(freqs)) {
+      if (f > maxFreq) maxFreq = f;
+    }
   }
 
   // Pool of birds
@@ -78,7 +72,20 @@ ${experience === 'pro' ? `Family: ${family}\nBehaviors: ${behavior}` : `Size: ${
 
   // 1. Pro Family Filter
   if (experience === 'pro' && family && (!expandedFamilies || expandedFamilies.length === 0)) {
-    pool = pool.filter(b => b.family_clements_ebird2024?.toLowerCase().includes(family.toLowerCase()));
+    const familyArray = Array.isArray(family) ? family : [family];
+    if (familyArray.length > 0) {
+      pool = pool.filter(b => {
+        const familyLatin = b.family_clements_ebird2024?.toLowerCase() || "";
+        const taxonomyEntry = dataLoader.taxonomyMap.get(b.family_clements_ebird2024);
+        const familyGroup = taxonomyEntry?.group.toLowerCase() || "";
+        const familyFull = taxonomyEntry?.family.toLowerCase() || "";
+        
+        return familyArray.some(f => {
+          const searchStr = f.toLowerCase();
+          return familyLatin.includes(searchStr) || familyGroup.includes(searchStr) || familyFull.includes(searchStr);
+        });
+      });
+    }
   }
 
   // Expanded Families filter (if user clicked "See results with these families")
@@ -174,17 +181,21 @@ ${experience === 'pro' ? `Family: ${family}\nBehaviors: ${behavior}` : `Size: ${
 
     // Prior
     let ebirdPrior = 0;
+    let foundInEbird = false;
     if (freqs[bird.common_name] !== undefined) {
       ebirdPrior = freqs[bird.common_name];
+      foundInEbird = true;
     } else {
       const match = Object.keys(freqs).find(k => k.toLowerCase().includes(bird.common_name.toLowerCase()));
-      if (match) ebirdPrior = freqs[match];
+      if (match) {
+        ebirdPrior = freqs[match];
+        foundInEbird = true;
+      }
     }
     
+    // If data is available but bird not found or 0 freq, prior remains 0.0. 
+    // If data is unavailable, prior is -1.
     let normalizedPrior = maxFreq > 0 ? ebirdPrior / maxFreq : -1;
-    if (normalizedPrior !== -1) {
-       normalizedPrior = Math.max(0.01, normalizedPrior);
-    }
 
     if (likelihood > 0.3) {
       topFamiliesSet.add(bird.family_clements_ebird2024);
@@ -215,6 +226,9 @@ ${experience === 'pro' ? `Family: ${family}\nBehaviors: ${behavior}` : `Size: ${
   
   // Return top 10
   const topBirds = results.slice(0, 10).filter(r => (r.posterior || 0) > 0.01);
+
+  // Sort results descending by prior
+  results.sort((a, b) => b.prior - a.prior);
 
   return {
     type: "result",

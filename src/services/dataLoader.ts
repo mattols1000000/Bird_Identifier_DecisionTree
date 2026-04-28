@@ -48,6 +48,19 @@ export interface NLPTranslation {
   Alternative_Descriptions: string;
 }
 
+export interface TaxonomyRecord {
+  TAXON_ORDER: number;
+  CATEGORY: string;
+  SPECIES_CODE: string;
+  TAXON_CONCEPT_ID: string;
+  PRIMARY_COM_NAME: string;
+  SCI_NAME: string;
+  ORDER: string;
+  FAMILY: string;
+  SPECIES_GROUP: string;
+  REPORT_AS: string;
+}
+
 export class DataLoader {
   public birdBase: BirdBaseRecord[] = [];
   public colorsBasic: ColorRecord[] = [];
@@ -57,6 +70,9 @@ export class DataLoader {
   public nlpBehaviors: NLPTranslation[] = [];
   public nlpBodyParts: NLPTranslation[] = [];
   public nlpColors: NLPTranslation[] = [];
+  
+  // Mapping of family string (e.g. "Struthionidae") to its common group (e.g. "Ostriches")
+  public taxonomyMap: Map<string, { family: string; group: string }> = new Map();
   
   private basePath = path.resolve(process.cwd());
 
@@ -92,6 +108,24 @@ export class DataLoader {
     this.nlpBehaviors = this.loadCsv<NLPTranslation>('NLP_Translation_Behaviors.csv');
     this.nlpBodyParts = this.loadCsv<NLPTranslation>('NLP_Translation_BodyParts.csv');
     this.nlpColors = this.loadCsv<NLPTranslation>('NLP_Translation_Colors.csv');
+    
+    // Load and build taxonomy map
+    const taxonomyRecords = this.loadCsv<TaxonomyRecord>('eBird_taxonomy_v2024.csv');
+    for (const record of taxonomyRecords) {
+      if (!record.FAMILY) continue;
+      
+      // The dataset often looks like: FAMILY="Struthionidae (Ostriches)", SPECIES_GROUP="Ostriches"
+      // we extract the latin part "Struthionidae" to match `family_clements_ebird2024`
+      const familyLatin = record.FAMILY.split(' (')[0].trim();
+      
+      if (!this.taxonomyMap.has(familyLatin)) {
+        this.taxonomyMap.set(familyLatin, {
+          family: record.FAMILY,
+          group: record.SPECIES_GROUP || ''
+        });
+      }
+    }
+    
     console.log("Datasets loaded successfully.");
   }
 }
